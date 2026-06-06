@@ -42,8 +42,10 @@ const map = new maplibregl.Map({
         maxzoom: 13, attribution: "© VFRMap.com / FAA" },
     },
     layers: [
-      { id: "bg", type: "background", paint: { "background-color": "#cdd7d2" } },
-      { id: "heli", type: "raster", source: "heli" },
+      { id: "bg", type: "background", paint: { "background-color": "#eef0ec" } },
+      // faded + desaturated so the busy aeronautical chart doesn't drown the helicopters
+      { id: "heli", type: "raster", source: "heli",
+        paint: { "raster-opacity": 0.5, "raster-saturation": -0.45, "raster-contrast": -0.05 } },
     ],
   },
   center: [-73.99, 40.70], zoom: 11, minZoom: 9.5, maxZoom: 13, dragRotate: false,
@@ -110,11 +112,11 @@ function render() {
       getColor: (d) => altColor(d.alt), opacity: 0.85, widthMinPixels: 1.8, capRounded: true, jointRounded: true,
       trailLength: TRAIL_WINDOW, currentTime: now, fadeTrail: true, parameters: { depthTest: false } }),
     new deck.ScatterplotLayer({ id: "halo", data: live, getPosition: (d) => [d.lon, d.lat],
-      getFillColor: (d) => [...altColor(d.alt), 60], stroked: false, getRadius: 260,
-      radiusMinPixels: 13, radiusMaxPixels: 32, parameters: { depthTest: false } }),
+      getFillColor: (d) => [...altColor(d.alt), 85], stroked: false, getRadius: 430,
+      radiusMinPixels: 20, radiusMaxPixels: 46, parameters: { depthTest: false } }),
     new deck.ScatterplotLayer({ id: "heli", data: live, getPosition: (d) => [d.lon, d.lat],
-      getFillColor: (d) => altColor(d.alt), getLineColor: [20, 30, 45, 235], lineWidthMinPixels: 1.4,
-      stroked: true, getRadius: 130, radiusMinPixels: 5.5, radiusMaxPixels: 16, pickable: true,
+      getFillColor: (d) => altColor(d.alt), getLineColor: [255, 255, 255, 240], lineWidthMinPixels: 2.4,
+      stroked: true, getRadius: 200, radiusMinPixels: 8, radiusMaxPixels: 24, pickable: true,
       parameters: { depthTest: false } }),
   ] });
   requestAnimationFrame(render);
@@ -146,7 +148,14 @@ let dimmed = false;
 const dimTitle = () => { if (!dimmed) { dimmed = true; $("title").classList.add("dim"); } };
 map.on("dragstart", dimTitle); map.on("zoomstart", dimTitle);
 
+// ---- Live-loading hint --------------------------------------------------
+function showToast(msg, ms = 11000) {
+  const el = $("toast"); el.textContent = msg; el.classList.add("show");
+  setTimeout(() => el.classList.remove("show"), ms);
+}
+
 // ---- Go -----------------------------------------------------------------
 map.on("load", () => map.resize());
+showToast("Helicopters appear as their transponders report — the live picture fills in over a minute.");
 poll(); setInterval(poll, POLL_MS);
 requestAnimationFrame(render);
