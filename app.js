@@ -45,7 +45,7 @@ const map = new maplibregl.Map({
       { id: "bg", type: "background", paint: { "background-color": "#eef0ec" } },
       // faded + desaturated so the busy aeronautical chart doesn't drown the helicopters
       { id: "heli", type: "raster", source: "heli",
-        paint: { "raster-opacity": 0.5, "raster-saturation": -0.45, "raster-contrast": -0.05 } },
+        paint: { "raster-opacity": 0.38, "raster-saturation": -0.6, "raster-contrast": -0.08 } },
     ],
   },
   center: [-73.99, 40.70], zoom: 11, minZoom: 9.5, maxZoom: 13, dragRotate: false,
@@ -100,6 +100,7 @@ function updateCount(t) {
 // ---- Render -------------------------------------------------------------
 function render() {
   const now = Date.now() / 1000;
+  const pulse = (Date.now() % 2200) / 2200;   // 0..1, drives the expanding ring
   const all = [...fleet.values()];
   const live = all.filter((h) => h.lat != null && now - (h.last || 0) < 180);
   const trails = all.filter((h) => h.trail.length > 1)
@@ -111,12 +112,24 @@ function render() {
     new deck.TripsLayer({ id: "wake", data: trails, getPath: (d) => d.p, getTimestamps: (d) => d.t,
       getColor: (d) => altColor(d.alt), opacity: 0.85, widthMinPixels: 1.8, capRounded: true, jointRounded: true,
       trailLength: TRAIL_WINDOW, currentTime: now, fadeTrail: true, parameters: { depthTest: false } }),
+    // expanding pulse ring (motion catches the eye) — radius/opacity animate each frame
+    new deck.ScatterplotLayer({ id: "pulse", data: live, getPosition: (d) => [d.lon, d.lat],
+      stroked: true, filled: false, radiusUnits: "pixels", getRadius: 11 + pulse * 30,
+      lineWidthUnits: "pixels", getLineWidth: 2.5,
+      getLineColor: (d) => [...altColor(d.alt), Math.round(200 * (1 - pulse))],
+      updateTriggers: { getRadius: pulse, getLineColor: pulse }, parameters: { depthTest: false } }),
     new deck.ScatterplotLayer({ id: "halo", data: live, getPosition: (d) => [d.lon, d.lat],
-      getFillColor: (d) => [...altColor(d.alt), 85], stroked: false, getRadius: 430,
-      radiusMinPixels: 20, radiusMaxPixels: 46, parameters: { depthTest: false } }),
+      getFillColor: (d) => [...altColor(d.alt), 95], stroked: false, radiusUnits: "pixels",
+      getRadius: 16, parameters: { depthTest: false } }),
     new deck.ScatterplotLayer({ id: "heli", data: live, getPosition: (d) => [d.lon, d.lat],
-      getFillColor: (d) => altColor(d.alt), getLineColor: [255, 255, 255, 240], lineWidthMinPixels: 2.4,
-      stroked: true, getRadius: 200, radiusMinPixels: 8, radiusMaxPixels: 24, pickable: true,
+      getFillColor: (d) => altColor(d.alt), getLineColor: [255, 255, 255, 245], lineWidthUnits: "pixels",
+      getLineWidth: 2.5, stroked: true, radiusUnits: "pixels", getRadius: 7, pickable: true,
+      parameters: { depthTest: false } }),
+    new deck.TextLayer({ id: "labels", data: live, getPosition: (d) => [d.lon, d.lat],
+      getText: (d) => d.flight || d.type || "", getSize: 12, getColor: [16, 26, 42, 255],
+      getPixelOffset: [0, -18], getTextAnchor: "middle", getAlignmentBaseline: "bottom",
+      fontFamily: "IBM Plex Mono, monospace", fontWeight: 600, characterSet: "auto",
+      outlineWidth: 3, outlineColor: [255, 255, 255, 235], fontSettings: { sdf: true },
       parameters: { depthTest: false } }),
   ] });
   requestAnimationFrame(render);
