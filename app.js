@@ -99,6 +99,13 @@ function updateCount(t) {
 
 // ---- Render -------------------------------------------------------------
 function render() {
+  // Schedule the next frame FIRST: during init there is a transient frame where
+  // the interleaved deck overlay isn't render-ready and setProps throws. If that
+  // throw happened before rescheduling, the whole animation loop died on frame ~1
+  // and the helicopters never painted (the raster chart still showed). Rescheduling
+  // up front plus a try/catch makes a bad frame harmless.
+  requestAnimationFrame(render);
+  try {
   const now = Date.now() / 1000;
   const pulse = (Date.now() % 2200) / 2200;   // 0..1, drives the expanding ring
   const all = [...fleet.values()];
@@ -132,7 +139,7 @@ function render() {
       outlineWidth: 3, outlineColor: [255, 255, 255, 235], fontSettings: { sdf: true },
       parameters: { depthTest: false } }),
   ] });
-  requestAnimationFrame(render);
+  } catch (e) { /* map/deck briefly not render-ready during init — skip this frame */ }
 }
 
 // ---- Tooltip ------------------------------------------------------------
