@@ -122,13 +122,18 @@ function render() {
 // ---- Live helicopters: spinning-asterisk DOM markers --------------------
 // maplibre Markers are plain HTML positioned over the map — rock solid, and the
 // spinning rotor is just a CSS animation. Altitude sets the colour via currentColor.
+// One swept main-rotor blade pointing up from the hub; the tip trails to the
+// right so that under the counter-clockwise CSS spin it reads as a real rotor.
+const BLADE =
+  'M -0.5 -1.4 C -1.5 -4 -1.4 -7.6 -0.3 -10.4 C 0.3 -11.6 1.6 -10.8 1.9 -9.2 ' +
+  'C 1.3 -6 1.1 -3 0.7 -1.2 C 0.5 -0.3 -0.1 -0.5 -0.5 -1.4 Z';
 const ROTOR_SVG =
-  '<svg viewBox="-12 -12 24 24" width="26" height="26" class="rotor" aria-hidden="true">' +
-  '<g stroke="currentColor" stroke-width="3.2" stroke-linecap="round">' +
-  '<line x1="0" y1="-10" x2="0" y2="10"/>' +
-  '<line x1="-8.7" y1="-5" x2="8.7" y2="5"/>' +
-  '<line x1="-8.7" y1="5" x2="8.7" y2="-5"/></g>' +
-  '<circle r="2.6" fill="currentColor"/></svg>';
+  '<svg viewBox="-12 -12 24 24" width="28" height="28" class="rotor" aria-hidden="true">' +
+  '<g fill="currentColor">' +
+  `<path d="${BLADE}"/>` +
+  `<path d="${BLADE}" transform="rotate(120)"/>` +
+  `<path d="${BLADE}" transform="rotate(240)"/>` +
+  '</g><circle r="2.4" fill="currentColor"/></svg>';
 const markers = new Map();   // hex -> maplibregl.Marker
 function tipHTML(h) {
   if (!h) return null;
