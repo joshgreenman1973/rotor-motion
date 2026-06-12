@@ -88,6 +88,7 @@ async function poll() {
     // prune fully-gone aircraft
     for (const [k, h] of fleet)
       if (t - (h.last || 0) > TRAIL_WINDOW && (!h.trail.length)) fleet.delete(k);
+    updateMarkers(t);
     updateCount(t);
   } catch (e) { console.warn("poll failed", e); $("count").textContent = "feed unavailable"; }
 }
@@ -97,70 +98,79 @@ function updateCount(t) {
   $("count").innerHTML = `<span class="n">${now}</span> helicopter${now === 1 ? "" : "s"} aloft now`;
 }
 
-// ---- Render -------------------------------------------------------------
+// ---- Render: fading wake trails (deck.gl) -------------------------------
+// Only the trails go through deck. The live helicopters themselves are drawn as
+// DOM markers (see below) so they always show even if the WebGL overlay hiccups.
 function render() {
-  // Schedule the next frame FIRST: during init there is a transient frame where
-  // the interleaved deck overlay isn't render-ready and setProps throws. If that
-  // throw happened before rescheduling, the whole animation loop died on frame ~1
-  // and the helicopters never painted (the raster chart still showed). Rescheduling
-  // up front plus a try/catch makes a bad frame harmless.
+  // Schedule the next frame FIRST so a transient deck/map error can't kill the loop.
   requestAnimationFrame(render);
   try {
-  const now = Date.now() / 1000;
-  const pulse = (Date.now() % 2200) / 2200;   // 0..1, drives the expanding ring
-  const all = [...fleet.values()];
-  const live = all.filter((h) => h.lat != null && now - (h.last || 0) < 180);
-  const trails = all.filter((h) => h.trail.length > 1)
-    .map((h) => ({ alt: h.alt, p: h.trail.map((q) => [q[0], q[1]]), t: h.trail.map((q) => q[2]) }));
-  overlay.setProps({ layers: [
-    new deck.TripsLayer({ id: "wake-glow", data: trails, getPath: (d) => d.p, getTimestamps: (d) => d.t,
-      getColor: (d) => altColor(d.alt), opacity: 0.2, widthMinPixels: 6, capRounded: true, jointRounded: true,
-      trailLength: TRAIL_WINDOW, currentTime: now, fadeTrail: true, parameters: { depthTest: false } }),
-    new deck.TripsLayer({ id: "wake", data: trails, getPath: (d) => d.p, getTimestamps: (d) => d.t,
-      getColor: (d) => altColor(d.alt), opacity: 0.85, widthMinPixels: 1.8, capRounded: true, jointRounded: true,
-      trailLength: TRAIL_WINDOW, currentTime: now, fadeTrail: true, parameters: { depthTest: false } }),
-    // expanding pulse ring (motion catches the eye) — radius/opacity animate each frame
-    new deck.ScatterplotLayer({ id: "pulse", data: live, getPosition: (d) => [d.lon, d.lat],
-      stroked: true, filled: false, radiusUnits: "pixels", getRadius: 11 + pulse * 30,
-      lineWidthUnits: "pixels", getLineWidth: 2.5,
-      getLineColor: (d) => [...altColor(d.alt), Math.round(200 * (1 - pulse))],
-      updateTriggers: { getRadius: pulse, getLineColor: pulse }, parameters: { depthTest: false } }),
-    new deck.ScatterplotLayer({ id: "halo", data: live, getPosition: (d) => [d.lon, d.lat],
-      getFillColor: (d) => [...altColor(d.alt), 95], stroked: false, radiusUnits: "pixels",
-      getRadius: 16, parameters: { depthTest: false } }),
-    new deck.ScatterplotLayer({ id: "heli", data: live, getPosition: (d) => [d.lon, d.lat],
-      getFillColor: (d) => altColor(d.alt), getLineColor: [255, 255, 255, 245], lineWidthUnits: "pixels",
-      getLineWidth: 2.5, stroked: true, radiusUnits: "pixels", getRadius: 7, pickable: true,
-      parameters: { depthTest: false } }),
-    new deck.TextLayer({ id: "labels", data: live, getPosition: (d) => [d.lon, d.lat],
-      getText: (d) => d.flight || d.type || "", getSize: 12, getColor: [16, 26, 42, 255],
-      getPixelOffset: [0, -18], getTextAnchor: "middle", getAlignmentBaseline: "bottom",
-      fontFamily: "IBM Plex Mono, monospace", fontWeight: 600, characterSet: "auto",
-      outlineWidth: 3, outlineColor: [255, 255, 255, 235], fontSettings: { sdf: true },
-      parameters: { depthTest: false } }),
-  ] });
-  } catch (e) { /* map/deck briefly not render-ready during init — skip this frame */ }
+    const now = Date.now() / 1000;
+    const trails = [...fleet.values()].filter((h) => h.trail.length > 1)
+      .map((h) => ({ alt: h.alt, p: h.trail.map((q) => [q[0], q[1]]), t: h.trail.map((q) => q[2]) }));
+    overlay.setProps({ layers: [
+      new deck.TripsLayer({ id: "wake-glow", data: trails, getPath: (d) => d.p, getTimestamps: (d) => d.t,
+        getColor: (d) => altColor(d.alt), opacity: 0.2, widthMinPixels: 6, capRounded: true, jointRounded: true,
+        trailLength: TRAIL_WINDOW, currentTime: now, fadeTrail: true, parameters: { depthTest: false } }),
+      new deck.TripsLayer({ id: "wake", data: trails, getPath: (d) => d.p, getTimestamps: (d) => d.t,
+        getColor: (d) => altColor(d.alt), opacity: 0.85, widthMinPixels: 1.8, capRounded: true, jointRounded: true,
+        trailLength: TRAIL_WINDOW, currentTime: now, fadeTrail: true, parameters: { depthTest: false } }),
+    ] });
+  } catch (e) { /* map/deck briefly not render-ready — skip this frame */ }
 }
 
-// ---- Tooltip ------------------------------------------------------------
+// ---- Live helicopters: spinning-asterisk DOM markers --------------------
+// maplibre Markers are plain HTML positioned over the map — rock solid, and the
+// spinning rotor is just a CSS animation. Altitude sets the colour via currentColor.
+const ROTOR_SVG =
+  '<svg viewBox="-12 -12 24 24" width="26" height="26" class="rotor" aria-hidden="true">' +
+  '<g stroke="currentColor" stroke-width="3.2" stroke-linecap="round">' +
+  '<line x1="0" y1="-10" x2="0" y2="10"/>' +
+  '<line x1="-8.7" y1="-5" x2="8.7" y2="5"/>' +
+  '<line x1="-8.7" y1="5" x2="8.7" y2="-5"/></g>' +
+  '<circle r="2.6" fill="currentColor"/></svg>';
+const markers = new Map();   // hex -> maplibregl.Marker
+function tipHTML(h) {
+  if (!h) return null;
+  const L = [`<div class="nm">${h.flight || h.reg || "Unknown"}${h.type ? " · " + h.type : ""}</div>`];
+  if (h.op) L.push(`<div class="meta">${h.op}</div>`);
+  const mv = [];
+  if (typeof h.alt === "number" && h.alt > 0) mv.push(`${h.alt.toLocaleString()} ft`);
+  else if (h.alt === 0) mv.push("on ground");
+  if (h.gs != null) mv.push(`${Math.round(h.gs)} kn`);
+  if (h.track != null) mv.push(`hdg ${Math.round(h.track)}°`);
+  if (mv.length) L.push(`<div class="meta">${mv.join(" · ")}</div>`);
+  L.push(`<div class="meta">seen ${ago(h.last)}</div>`);
+  return L.join("");
+}
+function updateMarkers(now) {
+  const seen = new Set();
+  for (const [hex, h] of fleet) {
+    if (h.lat == null || now - (h.last || 0) >= 180) continue;
+    seen.add(hex);
+    let m = markers.get(hex);
+    if (!m) {
+      const el = document.createElement("div");
+      el.className = "heli-marker";
+      el.innerHTML = ROTOR_SVG +
+        `<span class="tag">${(h.flight || h.type || "").trim()}</span>`;
+      el.addEventListener("mousemove", (ev) => setTooltip(ev.clientX, ev.clientY, tipHTML(fleet.get(hex))));
+      el.addEventListener("mouseleave", () => setTooltip(0, 0, null));
+      m = new maplibregl.Marker({ element: el }).setLngLat([h.lon, h.lat]).addTo(map);
+      markers.set(hex, m);
+    } else {
+      m.setLngLat([h.lon, h.lat]);
+      const tag = m.getElement().querySelector(".tag");
+      if (tag) tag.textContent = (h.flight || h.type || "").trim();
+    }
+    const c = altColor(h.alt);
+    m.getElement().style.color = `rgb(${c[0]},${c[1]},${c[2]})`;
+  }
+  for (const [hex, m] of markers) if (!seen.has(hex)) { m.remove(); markers.delete(hex); }
+}
+
+// ---- Tooltip (relative time) --------------------------------------------
 const ago = (s) => { s = Math.max(0, Math.round(Date.now() / 1000 - s)); return s < 90 ? `${s}s ago` : `${Math.round(s / 60)} min ago`; };
-overlay.setProps({
-  onHover: (info) => {
-    if (info.object && info.layer && info.layer.id === "heli") {
-      const h = info.object, L = [];
-      L.push(`<div class="nm">${h.flight || h.reg || "Unknown"}${h.type ? " · " + h.type : ""}</div>`);
-      if (h.op) L.push(`<div class="meta">${h.op}</div>`);
-      const mv = [];
-      if (typeof h.alt === "number") mv.push(`${h.alt.toLocaleString()} ft`);
-      else if (h.alt === 0) mv.push("on ground");
-      if (h.gs != null) mv.push(`${Math.round(h.gs)} kn`);
-      if (h.track != null) mv.push(`hdg ${Math.round(h.track)}°`);
-      if (mv.length) L.push(`<div class="meta">${mv.join(" · ")}</div>`);
-      L.push(`<div class="meta">seen ${ago(h.last)}</div>`);
-      setTooltip(info.x, info.y, L.join(""));
-    } else setTooltip(0, 0, null);
-  },
-});
 
 // ---- Intro dismiss ------------------------------------------------------
 $("title-close").onclick = () => $("title").classList.add("hidden");
