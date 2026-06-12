@@ -168,6 +168,12 @@ function showToast(msg, ms = 11000) {
 }
 
 // ---- Go -----------------------------------------------------------------
+// Keep the canvas synced to its container. If stylesheets are still pending
+// when the map is constructed, the container reports 0 size and MapLibre falls
+// back to a 400x300 canvas while the `load` event never settles — leaving a
+// blank map even though polling works. A ResizeObserver fires immediately with
+// the real size and on every later resize, so the chart always fills the view.
+new ResizeObserver(() => map.resize()).observe(document.getElementById("map"));
 map.on("load", () => map.resize());
 showToast("Helicopters appear as their transponders report — the live picture fills in over a minute.");
 poll(); setInterval(poll, POLL_MS);
