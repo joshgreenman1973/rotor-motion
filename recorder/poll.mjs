@@ -10,10 +10,29 @@ const HELI = /^(B06|B47|B407|B412|B429|B05|EC|AS3|AS50|AS55|AS65|A109|A119|A139|
 const isHeli = (a) => a.category === "A7" || (a.t && HELI.test(a.t));
 const inBox = (a) => a.lat != null && a.lon >= BBOX[0] && a.lon <= BBOX[2] && a.lat >= BBOX[1] && a.lat <= BBOX[3];
 
+// Fail loud on a broken feed. An empty sky is normal overnight, so zero
+// helicopters is a legitimate snapshot -- but a bad status, unparseable body
+// or a payload with no `ac` array at all means the feed is down, and that must
+// never be recorded as "no helicopters flying."
 const res = await fetch(API, { headers: { "User-Agent": "rotor-motion-recorder" } });
-const j = await res.json();
+if (!res.ok) {
+  console.error(`airplanes.live returned HTTP ${res.status} ${res.statusText}`);
+  process.exit(1);
+}
+let j;
+try {
+  j = await res.json();
+} catch {
+  console.error("airplanes.live returned a body that is not JSON");
+  process.exit(1);
+}
+if (!Array.isArray(j.ac)) {
+  console.error(`airplanes.live response has no 'ac' array: ${JSON.stringify(j).slice(0, 200)}`);
+  process.exit(1);
+}
+
 const t = Math.floor(Date.now() / 1000);
-const ac = (j.ac || []).filter((a) => isHeli(a) && inBox(a)).map((a) => ({
+const ac = j.ac.filter((a) => isHeli(a) && inBox(a)).map((a) => ({
   h: a.hex, fl: (a.flight || "").trim(), ty: a.t || "", op: (a.ownOp || "").trim(),
   la: +a.lat.toFixed(4), lo: +a.lon.toFixed(4),
   al: a.alt_baro === "ground" ? 0 : a.alt_baro, gs: a.gs != null ? Math.round(a.gs) : null,

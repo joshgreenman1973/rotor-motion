@@ -17,6 +17,12 @@ as they fly. A companion to [Harbor Motion](https://joshgreenman1973.github.io/n
 - This is a **live** view (plus accumulating session wakes) — there is no free
   turnkey historical archive of helicopter tracks, so there's no "year" view (yet).
   A future version could self-archive the live feed, as Harbor Motion does for AIS.
+- We are building that archive now: `recorder/poll.mjs` snapshots the feed on a
+  schedule and commits to the **[`data` branch](https://github.com/joshgreenman1973/rotor-motion/tree/data/data/log)**
+  (one `data/log/YYYY-MM-DD.jsonl` per day, ET). It lives on its own branch
+  because every commit to `main` triggers a full Pages rebuild, and the site
+  itself reads only the live API. When the historical view is built, read the
+  archive over `raw.githubusercontent.com` rather than moving it back onto `main`.
 - The chart date segment (`CHART_DATE` in app.js) rolls each ~56-day FAA cycle; update it if tiles stop loading.
 
 *Not for navigation. Chart © VFRMap.com / FAA. ADS-B via airplanes.live.*
