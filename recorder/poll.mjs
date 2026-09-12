@@ -1,9 +1,12 @@
-// Snapshot NYC helicopters from airplanes.live and append to a per-day log.
+// Snapshot NYC helicopters from the adsb.fi open data API and append to a per-day log.
 // Run on a schedule by GitHub Actions; builds our own history since no free
 // ADS-B archive exists. Compact records so the repo stays small.
 import fs from "node:fs";
 
-const API = "https://api.airplanes.live/v2/point/40.7/-74.0/45";
+// adsb.fi v3 point/radius (nm): same readsb "ac" shape airplanes.live used, incl.
+// ownOp/desc. No key; 1 req/s limit; personal non-commercial use, cite adsb.fi.
+// (airplanes.live closed anonymous access ~Aug 12 2026 and now returns 403.)
+const API = "https://opendata.adsb.fi/api/v3/lat/40.7/lon/-74.0/dist/45";
 const BBOX = [-74.28, 40.45, -73.70, 40.92]; // lon/lat min/max (NYC harbor + approaches)
 const HELI = /^(B06|B47|B407|B412|B429|B05|EC|AS3|AS50|AS55|AS65|A109|A119|A139|AW1|S76|S92|H60|UH|R22|R44|R66|MD5|H500|EXPL|GAZL|H269|EH10|NH90|B505)/i;
 
@@ -16,18 +19,18 @@ const inBox = (a) => a.lat != null && a.lon >= BBOX[0] && a.lon <= BBOX[2] && a.
 // never be recorded as "no helicopters flying."
 const res = await fetch(API, { headers: { "User-Agent": "rotor-motion-recorder" } });
 if (!res.ok) {
-  console.error(`airplanes.live returned HTTP ${res.status} ${res.statusText}`);
+  console.error(`adsb.fi returned HTTP ${res.status} ${res.statusText}`);
   process.exit(1);
 }
 let j;
 try {
   j = await res.json();
 } catch {
-  console.error("airplanes.live returned a body that is not JSON");
+  console.error("adsb.fi returned a body that is not JSON");
   process.exit(1);
 }
 if (!Array.isArray(j.ac)) {
-  console.error(`airplanes.live response has no 'ac' array: ${JSON.stringify(j).slice(0, 200)}`);
+  console.error(`adsb.fi response has no 'ac' array: ${JSON.stringify(j).slice(0, 200)}`);
   process.exit(1);
 }
 

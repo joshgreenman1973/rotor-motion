@@ -1,10 +1,12 @@
 /* Rotor Motion — live helicopters over New York Harbor on the FAA NY Helicopter
-   Route Chart. Real-time ADS-B from airplanes.live (browser-direct, no key),
+   Route Chart. Real-time ADS-B from adsb.fi open data (no key),
    filtered to rotorcraft (ADS-B emitter category A7). Helicopters leave fading
    "radar" wakes that build up through the session. Not for navigation. */
 
 // ---- Config -------------------------------------------------------------
-const API = "https://api.airplanes.live/v2/point/40.7/-74.0/45";   // lat, lon, radius(nm)
+// adsb.fi v3 point/radius (nm). NOTE: adsb.fi sends no CORS header, so this
+// browser fetch is blocked until the page reads through a CORS-enabled source.
+const API = "https://opendata.adsb.fi/api/v3/lat/40.7/lon/-74.0/dist/45";
 // FAA NY Helicopter Route Chart via VFRMap (TMS path /{z}/{y}/{x}). VFRMap sends
 // no CORS header and MapLibre fetches tiles for WebGL, so we proxy through
 // images.weserv.nl which adds `access-control-allow-origin: *`.
