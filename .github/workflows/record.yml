@@ -35,7 +35,7 @@ jobs:
         run: |
           git config user.name "rotor-recorder"
           git config user.email "actions@users.noreply.github.com"
-          git add data/log
+          git add data/log data/latest.json
           if git diff --staged --quiet; then
             echo "nothing new to record"
             exit 0

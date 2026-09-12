@@ -1,18 +1,20 @@
 /* Rotor Motion — live helicopters over New York Harbor on the FAA NY Helicopter
-   Route Chart. Real-time ADS-B from adsb.fi open data (no key),
-   filtered to rotorcraft (ADS-B emitter category A7). Helicopters leave fading
-   "radar" wakes that build up through the session. Not for navigation. */
+   Route Chart. ADS-B from adsb.fi open data, filtered to rotorcraft (ADS-B
+   emitter category A7), as snapshotted every 15 minutes by recorder/poll.mjs.
+   Not for navigation. */
 
 // ---- Config -------------------------------------------------------------
-// adsb.fi v3 point/radius (nm). NOTE: adsb.fi sends no CORS header, so this
-// browser fetch is blocked until the page reads through a CORS-enabled source.
-const API = "https://opendata.adsb.fi/api/v3/lat/40.7/lon/-74.0/dist/45";
+// adsb.fi sends no CORS header, so the browser can't call it directly. Instead
+// the page reads the recorder's latest snapshot from the `data` branch;
+// raw.githubusercontent.com sends `access-control-allow-origin: *`.
+const API = "https://raw.githubusercontent.com/joshgreenman1973/rotor-motion/data/data/latest.json";
+const STALE_AFTER = 45 * 60;   // seconds; the recorder runs every ~15 min
 // FAA NY Helicopter Route Chart via VFRMap (TMS path /{z}/{y}/{x}). VFRMap sends
 // no CORS header and MapLibre fetches tiles for WebGL, so we proxy through
 // images.weserv.nl which adds `access-control-allow-origin: *`.
 const CHART_DATE = "20260319";
 const CHART_TILES = `https://images.weserv.nl/?url=vfrmap.com/${CHART_DATE}/tiles/helic/{z}/{y}/{x}.jpg`;
-const POLL_MS = 8000;
+const POLL_MS = 60000;   // snapshot changes every ~15 min; raw CDN caches ~5 min
 const TRAIL_WINDOW = 2 * 3600;   // seconds of wake to keep
 
 // Altitude colour bands (feet) — helicopters work the low corridors.
@@ -71,33 +73,50 @@ $("legend").innerHTML = ALT_BANDS.map((b) =>
 
 // ---- Live polling -------------------------------------------------------
 const isHeli = (a) => a.category === "A7" || (a.t && HELI_TYPE.test(a.t));
+// Snapshot time as AP-style Eastern time, e.g. "3:06 p.m."
+const clock = (s) => new Date(s * 1000).toLocaleTimeString("en-US",
+  { hour: "numeric", minute: "2-digit", timeZone: "America/New_York" }).replace("AM", "a.m.").replace("PM", "p.m.");
 async function poll() {
   try {
-    const j = await (await fetch(API, { cache: "no-store" })).json();
-    const t = Date.now() / 1000;
-    for (const a of (j.ac || [])) {
+    // Query string defeats the browser cache; a bad status, non-JSON body or a
+    // payload without an `ac` array is a broken feed. Zero helicopters is fine.
+    const res = await fetch(`${API}?v=${Math.floor(Date.now() / 60000)}`, { cache: "no-store" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const j = await res.json();
+    if (!Array.isArray(j.ac) || typeof j.t !== "number") throw new Error("snapshot has no ac array or timestamp");
+    const t = j.t;
+    for (const a of j.ac) {
       if (!isHeli(a) || a.lat == null || a.lon == null) continue;
       let h = fleet.get(a.hex);
       if (!h) { h = { trail: [] }; fleet.set(a.hex, h); }
       const alt = a.alt_baro === "ground" ? 0 : a.alt_baro;
       Object.assign(h, { lat: a.lat, lon: a.lon, alt, gs: a.gs, track: a.track,
         flight: (a.flight || "").trim(), type: a.t, op: (a.ownOp || "").trim(), reg: a.r, desc: a.desc, last: t });
-      const lp = h.trail[h.trail.length - 1];
-      if (!lp || Math.abs(lp[0] - a.lon) + Math.abs(lp[1] - a.lat) > 0.00012) h.trail.push([a.lon, a.lat, t]);
-      const cut = t - TRAIL_WINDOW;
-      while (h.trail.length && h.trail[0][2] < cut) h.trail.shift();
+      // No wakes: snapshots are 15 minutes apart, so a line between them would
+      // be invented. Trails stay empty and the TripsLayer draws nothing.
     }
-    // prune fully-gone aircraft
-    for (const [k, h] of fleet)
-      if (t - (h.last || 0) > TRAIL_WINDOW && (!h.trail.length)) fleet.delete(k);
+    // Keep only the aircraft in the latest snapshot.
+    for (const [k, h] of fleet) if (h.last !== t) fleet.delete(k);
     updateMarkers(t);
     updateCount(t);
-  } catch (e) { console.warn("poll failed", e); $("count").textContent = "feed unavailable"; }
+  } catch (e) {
+    console.warn("poll failed", e);
+    $("count").textContent = "feed unavailable";
+    $("asof").textContent = ""; $("asof").classList.remove("stale");
+  }
 }
 function updateCount(t) {
-  let now = 0;
-  for (const h of fleet.values()) if (t - (h.last || 0) < 120) now++;
-  $("count").innerHTML = `<span class="n">${now}</span> helicopter${now === 1 ? "" : "s"} aloft now`;
+  const n = fleet.size;
+  $("count").innerHTML = `<span class="n">${n}</span> helicopter${n === 1 ? "" : "s"} on the map`;
+  const age = Date.now() / 1000 - t;
+  const el = $("asof");
+  if (age > STALE_AFTER) {
+    el.textContent = `Stale: latest positions are from ${clock(t)}, ${Math.round(age / 60)} minutes ago. The recorder may be delayed.`;
+    el.classList.add("stale");
+  } else {
+    el.textContent = `Positions as of ${clock(t)}, updated every 15 minutes`;
+    el.classList.remove("stale");
+  }
 }
 
 // ---- Render: fading wake trails (deck.gl) -------------------------------
@@ -153,7 +172,7 @@ function tipHTML(h) {
 function updateMarkers(now) {
   const seen = new Set();
   for (const [hex, h] of fleet) {
-    if (h.lat == null || now - (h.last || 0) >= 180) continue;
+    if (h.lat == null || h.last !== now) continue;
     seen.add(hex);
     let m = markers.get(hex);
     if (!m) {
@@ -199,6 +218,5 @@ function showToast(msg, ms = 11000) {
 // the real size and on every later resize, so the chart always fills the view.
 new ResizeObserver(() => map.resize()).observe(document.getElementById("map"));
 map.on("load", () => map.resize());
-showToast("Helicopters appear as their transponders report — the live picture fills in over a minute.");
 poll(); setInterval(poll, POLL_MS);
 requestAnimationFrame(render);

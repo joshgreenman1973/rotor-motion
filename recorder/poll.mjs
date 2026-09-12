@@ -44,4 +44,12 @@ const ac = j.ac.filter((a) => isHeli(a) && inBox(a)).map((a) => ({
 const day = new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" }); // YYYY-MM-DD (ET)
 fs.mkdirSync("data/log", { recursive: true });
 fs.appendFileSync(`data/log/${day}.jsonl`, JSON.stringify({ t, ac }) + "\n");
-console.log(`${day}  ${ac.length} helicopters logged`);
+// The live page can't call adsb.fi from the browser (no CORS header), so it
+// reads this small, overwritten snapshot from the data branch instead. It keeps
+// the raw feed fields the page renders, for every rotorcraft in the 45 nm radius.
+const latest = j.ac.filter((a) => isHeli(a) && a.lat != null && a.lon != null).map((a) => ({
+  hex: a.hex, flight: a.flight, t: a.t, r: a.r, ownOp: a.ownOp, desc: a.desc, category: a.category,
+  lat: a.lat, lon: a.lon, alt_baro: a.alt_baro, gs: a.gs, track: a.track,
+}));
+fs.writeFileSync("data/latest.json", JSON.stringify({ t, source: "adsb.fi", ac: latest }) + "\n");
+console.log(`${day}  ${ac.length} helicopters logged, ${latest.length} in latest.json`);
