@@ -1,1 +1,1 @@
-{"t":1789377495,"source":"adsb.fi","ac":[]}
+{"t":1789378949,"source":"adsb.fi","ac":[{"hex":"acb1f5","flight":"N917PD  ","t":"B429","r":"N917PD","ownOp":"NEW YORK CITY POLICE DEPARTMENT","desc":"BELL 429 GlobalRanger","category":"A7","lat":40.854523,"lon":-73.891484,"alt_baro":775,"gs":51.9,"track":340.87},{"hex":"a7d764","flight":"N604PD  ","t":"B429","r":"N604PD","ownOp":"NASSAU COUNTY POLICE DEPARTMENT, AIR BUREAU","desc":"BELL 429 GlobalRanger","category":"A7","lat":40.679077,"lon":-73.597778,"alt_baro":850,"gs":41.7,"track":30.26}]}
