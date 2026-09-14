@@ -1,1 +1,1 @@
-{"t":1789352490,"source":"adsb.fi","ac":[]}
+{"t":1789353964,"source":"adsb.fi","ac":[{"hex":"ac6baf","flight":"N9NJ    ","t":"A139","r":"N9NJ","ownOp":"STATE OF NEW JERSEY","desc":"AGUSTA AW-139","category":"A7","lat":40.057663,"lon":-74.161438,"alt_baro":1050,"gs":144.8,"track":32.59},{"hex":"a9d334","flight":"N732HM  ","t":"EC35","r":"N732HM","ownOp":"AIR METHODS LLC","desc":"AIRBUS HELICOPTERS EC-135/635","category":"A7","lat":40.68633,"lon":-74.033432,"alt_baro":1150,"gs":102.8,"track":193.5}]}
