@@ -1,1 +1,1 @@
-{"t":1789912180,"source":"adsb.fi","ac":[]}
+{"t":1789913464,"source":"adsb.fi","ac":[{"hex":"a18e86","flight":"N2NJ    ","t":"B06","r":"N2NJ","ownOp":"NEW JERSEY STATE POLICE, HELICOPTER BUREAU","desc":"BELL 206 JetRanger","category":"A7","lat":40.613068,"lon":-74.269226,"alt_baro":700,"gs":109,"track":42.03},{"hex":"aa4682","flight":"GRYDR76 ","t":"S76","r":"N761NY","ownOp":"NEW YORK STATE POLICE","desc":"SIKORSKY S-76 Spirit","category":"A7","lat":41.237183,"lon":-74.00659,"alt_baro":3900,"gs":156.3,"track":314.22}]}
