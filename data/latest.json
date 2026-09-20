@@ -1,1 +1,1 @@
-{"t":1789926525,"source":"adsb.fi","ac":[]}
+{"t":1789928092,"source":"adsb.fi","ac":[{"hex":"abbb08","flight":"N855MK  ","t":"H160","r":"N855MK","ownOp":"MERCK SHARP & DOHME LLC","desc":"AIRBUS HELICOPTERS H-160","category":"A7","lat":40.928467,"lon":-74.596985,"alt_baro":7950,"gs":150.2,"track":197.83},{"hex":"ab8fd2","flight":"N844MK  ","t":"H160","r":"N844MK","ownOp":"MERCK SHARP & DOHME LLC","desc":"AIRBUS HELICOPTERS H-160","category":"A7","lat":40.417956,"lon":-73.639235,"alt_baro":900,"gs":142.7,"track":244.69}]}
