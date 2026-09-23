@@ -1,1 +1,1 @@
-{"t":1790138436,"source":"adsb.fi","ac":[]}
+{"t":1790139078,"source":"adsb.fi","ac":[{"hex":"a703e4","flight":"N551HU  ","t":"EC35","r":"N551HU","ownOp":"AIR METHODS LLC","desc":"AIRBUS HELICOPTERS EC-135/635","category":"A7","lat":41.010892,"lon":-74.206654,"alt_baro":1550,"gs":133.1,"track":318.04},{"hex":"ab7da4","flight":"N84BL   ","t":"B407","r":"N84BL","ownOp":"HELICOPTERS INC","desc":"BELL 407","category":"A7","lat":40.573348,"lon":-74.179001,"alt_baro":400,"gs":109.8,"track":100.49}]}
