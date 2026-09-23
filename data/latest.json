@@ -1,1 +1,1 @@
-{"t":1790160163,"source":"adsb.fi","ac":[]}
+{"t":1790160700,"source":"adsb.fi","ac":[{"hex":"ab3633","flight":"N821SS  ","t":"S76","r":"N821SS","ownOp":"FLY SAFE LLC","desc":"SIKORSKY S-76 Spirit","category":"A7","lat":40.756027,"lon":-74.018005,"alt_baro":-125,"gs":70.9,"track":16.39},{"hex":"a9411b","flight":"N696BB  ","t":"A139","r":"N696BB","ownOp":"CSC DELAWARE TRUST CO TRUSTEE","desc":"AGUSTA AW-139","category":"A7","lat":40.569111,"lon":-73.677125,"alt_baro":0,"gs":170,"track":263.92}]}
