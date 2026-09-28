@@ -1,1 +1,1 @@
-{"t":1790617877,"source":"adsb.fi","ac":[]}
+{"t":1790619477,"source":"adsb.fi","ac":[{"hex":"a40aa8","flight":"N36HF   ","t":"S76","r":"N36HF","ownOp":"HELIFLITE SHARES LLC","desc":"SIKORSKY S-76 Spirit","category":"A7","lat":40.824404,"lon":-74.040548,"alt_baro":575,"gs":87.7,"track":316.85},{"hex":"a2bd59","flight":"FXC11   ","t":"S76","r":"N276FX","ownOp":"FLEXJET VERTICAL LIFT LLC","desc":"SIKORSKY S-76 Spirit","category":"A7","lat":40.742615,"lon":-73.971893,"alt_baro":"ground","gs":0}]}
