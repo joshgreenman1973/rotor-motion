@@ -1,0 +1,14 @@
+name = "rotor-motion-adsb"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+
+# Deploy:  cd worker && npx wrangler deploy
+# No secrets: the recorder loop authenticates with its GitHub Actions OIDC token.
+
+[[durable_objects.bindings]]
+name = "LATEST"
+class_name = "Latest"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Latest"]

@@ -1,50 +1,85 @@
 name: record-helicopters
+
+# ONE long-lived recorder instead of a 15-minute cron.
+#
+# The live page reads helicopters from the Cloudflare relay in worker/, and the
+# relay can't fetch ADS-B itself (adsb.fi refuses Cloudflare's network). So this
+# job runs recorder/loop.mjs, which stays up about 5.5 hours, fetches adsb.fi
+# every 10 seconds, posts the helicopters to the relay, appends a snapshot to
+# the `data` branch every 15 minutes, and then starts its own successor through
+# workflow_dispatch (dispatch events are not subject to cron delays). GitHub's
+# cron started only about five of 96 runs a day from Oct. 1, 2026, so the
+# hourly cron below is only a backstop: when a recorder is already live, the
+# backstop run exits in seconds. Public repo, so Actions minutes are free.
 on:
   schedule:
-    - cron: "*/15 * * * *"   # every 15 minutes (GitHub may delay under load)
-  workflow_dispatch: {}        # allow manual runs
+    - cron: "23 * * * *"
+  workflow_dispatch:
+    inputs:
+      predecessor:
+        description: "Run id of the recorder run that started this one (set automatically)"
+        required: false
+        default: ""
+      once:
+        description: "Fetch, post and archive once, then exit without starting a successor (for testing)"
+        type: boolean
+        default: false
+
 permissions:
-  contents: write
-concurrency:
-  group: record
-  cancel-in-progress: false
+  contents: write   # archive commits to the data branch
+  actions: write    # dispatch the successor
+  id-token: write   # OIDC token the relay checks
+
 jobs:
   record:
     runs-on: ubuntu-latest
+    timeout-minutes: 350
     steps:
-      # main holds the recorder code; the `data` branch holds the archive it
-      # writes. Keeping them apart means a snapshot never touches main, so it
-      # never triggers a Pages rebuild of a site that does not read the archive.
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: "20" }
-
-      - name: Check out the archive
+      # Single writer. Exit before doing anything if an older recorder run is
+      # live. The run that dispatched this one is exempt; wait for it to finish.
+      - name: Yield to a recorder that is already running
+        id: guard
+        if: ${{ github.event.inputs.once != 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          ME: ${{ github.run_id }}
+          PRED: ${{ github.event.inputs.predecessor }}
         run: |
-          git fetch --depth=1 origin data
-          git worktree add archive FETCH_HEAD
-
-      # poll.mjs writes data/log relative to the working directory, so running
-      # it inside the worktree lands the snapshot on the archive branch.
-      - name: Snapshot helicopters
-        working-directory: archive
-        run: node ../recorder/poll.mjs
-
-      - name: Commit the snapshot
-        working-directory: archive
-        run: |
-          git config user.name "rotor-recorder"
-          git config user.email "actions@users.noreply.github.com"
-          git add data/log data/latest.json
-          if git diff --staged --quiet; then
-            echo "nothing new to record"
-            exit 0
+          others() {
+            gh api "repos/$REPO/actions/workflows/record.yml/runs?status=in_progress&per_page=50" \
+              --jq "[.workflow_runs[].id | select(. != $ME) | tostring] | join(\" \")"
+          }
+          if [ -n "$PRED" ]; then
+            for i in $(seq 1 20); do
+              case " $(others) " in *" $PRED "*) sleep 15 ;; *) break ;; esac
+            done
           fi
-          git commit -m "log helicopters $(date -u +%FT%TZ)"
-          for attempt in 1 2 3; do
-            git push origin HEAD:data && exit 0
-            echo "push failed (attempt $attempt), rebasing on the latest archive"
-            git fetch --depth=1 origin data && git rebase FETCH_HEAD || git rebase --abort
+          for id in $(others); do
+            if [ "$id" != "${PRED:-0}" ] && [ "$id" -lt "$ME" ]; then
+              echo "Recorder run $id is already live; this run yields."
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
           done
-          echo "could not push the snapshot after 3 attempts"
-          exit 1
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+        if: steps.guard.outputs.skip != 'true'
+
+      - uses: actions/setup-node@v4
+        if: steps.guard.outputs.skip != 'true'
+        with: { node-version: "22" }
+
+      - name: Record
+        if: steps.guard.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          ONCE: ${{ github.event.inputs.once }}
+        run: |
+          if [ "$ONCE" = "true" ]; then
+            node recorder/loop.mjs --once
+          else
+            node recorder/loop.mjs
+          fi
