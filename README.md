@@ -1,7 +1,7 @@
 # Rotor Motion
 
-Live **helicopter** traffic over New York Harbor, drawn on the **FAA New York
-Helicopter Route Chart** — tour flights, commuters, NYPD, medevac and news birds
+Live **helicopter** traffic over New York Harbor, drawn on the Federal Aviation Administration's (FAA) **New York
+Helicopter Route Chart** — tour flights, commuters, the New York Police Department, medevac and news birds
 as they fly. A companion to [Harbor Motion](https://joshgreenman1973.github.io/nyc-harbor-traffic/)
 (boats), built on the same MapLibre GL + deck.gl stack.
 
@@ -24,7 +24,7 @@ as they fly. A companion to [Harbor Motion](https://joshgreenman1973.github.io/n
   proxied through images.weserv.nl to add CORS (MapLibre fetches tiles for WebGL).
 
 ## Notes / limits
-- ADS-B equipage is mandated in NYC's controlled airspace, so coverage is good, but
+- ADS-B equipage is mandated in New York City's controlled airspace, so coverage is good, but
   some police/military or privacy-blocked aircraft may not appear on a free feed.
 - There is no free turnkey historical archive of helicopter tracks, so there's
   no "year" view (yet). Wakes build up from when you open the page.
